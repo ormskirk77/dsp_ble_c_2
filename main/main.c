@@ -29,6 +29,11 @@
 #include "SigmaStudioFW.h"
 #include "SigmaStudioFiles/Design 1_IC_1.h"
 
+#define POWER_LED_0 13
+#define POWER_LED_1 14
+
+
+
 #define DSP_TABLE_TAG "DSP_TAG"
 
 #define SDA_PIN 21
@@ -52,7 +57,7 @@
 #define SCAN_RSP_CONFIG_FLAG        (1 << 1)
 
 
-
+bool POWER_LED_COLOUR = 0;
 uint16_t dsp_control_handle_table[NUM_TABLE_ELEMENTS];
 
 typedef struct {
@@ -69,7 +74,7 @@ static uint8_t service_uuid[16] = {
 
 /* The length of adv data must be less than 31 bytes */
 static esp_ble_adv_data_t adv_data = {
-    .set_scan_rsp        = false,
+    .set_scan_rsp        = true,
     .include_name        = true,
     .include_txpower     = true,
     .min_interval        = 0x0006, //slave connection min interval, Time = min_interval * 1.25 msec
@@ -295,6 +300,17 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                   param->update_conn_params.latency,
                   param->update_conn_params.timeout);
 			break;
+		case ESP_GAP_BLE_NC_REQ_EVT:
+			break;
+    case ESP_GAP_BLE_SEC_REQ_EVT:
+    	/*
+    	 *  THIS IS NEEDED TO BOND WITH A DEVICE. DON'T KNOW WHAT THE ESP COMMENT IS TALKING ABOUT.
+    	 */
+//        /* send the positive(true) security response to the peer device to accept the security request.
+//        If not accept the security request, should sent the security response with negative(false) accept value*/
+        esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
+
+        break;
 		default :
 			break;
 	}
@@ -379,14 +395,14 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 					            //start sent the update connection parameters to the peer device.
 					            esp_ble_gap_update_conn_params(&conn_params);
 
-
-
+					  //          POWER_LED_COLOUR = 1;
 				break;
 			case ESP_GATTS_DISCONNECT_EVT:
 				printf("gatts_profile_event_handler: ");
 				printf("ESP_GATTS_DISCONNECT_EVT called.\n");
 	            esp_ble_gap_config_adv_data(&adv_data);
 	            esp_ble_gap_config_adv_data(&scan_rsp_data);
+	            POWER_LED_COLOUR = 0;
 				break;
 			case ESP_GATTS_CREAT_ATTR_TAB_EVT:
 					printf("ESP_GATTS_CREAT_ATTR_TAB_EVT.\n");
@@ -418,10 +434,46 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 
 }
 
+/*
+ * Power light should be red when power is applied to the device. Then turn green when a BLE connection is made.
+ */
+void powerLightOn(void *pvParameter){
+	printf("power light on.\n");
+	while(1){
+		if(POWER_LED_COLOUR == 0) {
+			gpio_pad_select_gpio(POWER_LED_0);
+			gpio_set_direction(POWER_LED_0, GPIO_MODE_OUTPUT);
+			gpio_set_level(POWER_LED_0, 1);
+
+			gpio_pad_select_gpio(POWER_LED_1);
+			gpio_set_direction(POWER_LED_1, GPIO_MODE_OUTPUT);
+			gpio_set_level(POWER_LED_1, 0);
+		}
+		if(POWER_LED_COLOUR == 1){
+			gpio_pad_select_gpio(POWER_LED_0);
+			gpio_set_direction(POWER_LED_0, GPIO_MODE_OUTPUT);
+			gpio_set_level(POWER_LED_0, 0);
+
+			gpio_pad_select_gpio(POWER_LED_1);
+			gpio_set_direction(POWER_LED_1, GPIO_MODE_OUTPUT);
+			gpio_set_level(POWER_LED_1, 1);
+		}
+	}
+}
+
 
 
 void app_main()
 {
+
+/*
+ * power light on.
+***ERROR*** A stack overflow in task LED_INDICATOR has been detected.
+abort() was called at PC 0x4008d82c Guru Meditation Error: Core  0 panic'ed (StoreProhibited). Exception was unhandled.
+0x4008d82c: vApplicationStackOverflowHook at /Users/timfernandez/esp/esp-idf/components/esp32/panic.c:716
+ */
+	xTaskCreate(&powerLightOn, "LED_INDICATOR", 16000, NULL, 0, NULL);
+
     esp_err_t ret;
 
     /* Initialize NVS. */
@@ -433,6 +485,19 @@ void app_main()
     ESP_ERROR_CHECK( ret );
 
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
+	i2c_config_t conf;
+	conf.mode = I2C_MODE_MASTER;
+	conf.sda_io_num = SDA_PIN;
+	conf.scl_io_num = SCL_PIN;
+	conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+	conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+	conf.master.clk_speed = 500000;
+	i2c_param_config(I2C_NUM_0, &conf);
+
+	i2c_driver_install(I2C_NUM_0, I2C_MODE_MASTER, 0, 0, 0);
+
+
 
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ret = esp_bt_controller_init(&bt_cfg);
@@ -481,6 +546,39 @@ void app_main()
     if (local_mtu_ret){
         ESP_LOGE(DSP_TABLE_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
+
+
+
+
+    /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
+    esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND;     //bonding with peer device after authentication
+    esp_ble_io_cap_t iocap = ESP_IO_CAP_NONE;           //set the IO capability to No output No input
+    uint8_t key_size = 16;      //the key size should be 7~16 bytes
+    uint8_t init_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+    uint8_t rsp_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
+    esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &iocap, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof(uint8_t));
+    /* If your BLE device act as a Slave, the init_key means you hope which types of key of the master should distribut to you,
+    and the response key means which key you can distribut to the Master;
+    If your BLE device act as a master, the response key means you hope which types of key of the slave should distribut to you,
+    and the init key means which key you can distribut to the slave. */
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
  //   default_download_IC_1();
 }
