@@ -72,13 +72,14 @@ void SIGMA_WRITE_REGISTER_BLOCK(int devAddress, int address, int length, ADI_REG
 
       // mask and send lower address byte
 		i2c_master_write_byte(cmd, LO(address), true);
-//		printf(" %X\n", LO(address));
+//		printf(" %X", LO(address));
 
 	// Add extra dummy bit if this call is a safe load procedure.
 		//|| 0x0811 || 0x0812 || 0x0813 || 0x0814
-		if(address==0x0810 || address==0x0811 || address==0x0812 || address==0x0813 || address==0x0814) {
+		if(address==0x0810 || address==0x0811 || address==0x0812 || address==0x0813 ||
+				address==0x0814 || address==0x0815 || address==0x0816 || address==0x0817 || address==0x0818 || address==0x0819 ) {
 			i2c_master_write_byte(cmd, 0x00, true);
-//			printf(" 00 " );
+//			printf(" _00 " );
 		}
 
 
@@ -88,7 +89,7 @@ void SIGMA_WRITE_REGISTER_BLOCK(int devAddress, int address, int length, ADI_REG
 //			printf(" %X", *pData);
 			pData++;
 		}
-//		printf("\n");
+		printf("\n");
 	  // Send ACK bit on I2C bus
 
       // STOP I2C
@@ -100,7 +101,7 @@ void SIGMA_WRITE_REGISTER_BLOCK(int devAddress, int address, int length, ADI_REG
 		  if (ret == ESP_FAIL) {
 		     printf("ESP_I2C_WRITE ERROR : %d\n",ret);
 		  } else {
-			  printf("ESP32 I2C worked with return: %X\n", ret);
+//			  printf("ESP32 I2C worked with return: %X\n", ret);
 		  }
 
 
@@ -139,8 +140,8 @@ void SIGMA_SAFELOAD_SINGLE(int device_address, char param_address, ADI_REG_TYPE 
 //	Step 3: the IST bit is set
 //	0x08 0x1C 0x00 0x3C
 
-	ADI_REG_TYPE safe_load_IST_flip[1] = {0x3C};
-	SIGMA_WRITE_REGISTER_BLOCK(device_address, 0x081C, 1, safe_load_IST_flip);
+	ADI_REG_TYPE safe_load_IST_flip[2] = {0x00, 0x3C};
+	SIGMA_WRITE_REGISTER_BLOCK(device_address, 0x081C, 2, safe_load_IST_flip);
 }
 
 void SIGMA_SAFELOAD_BIQUAD(int device_address, char param_address, float *paramData){
@@ -177,8 +178,8 @@ void SIGMA_SAFELOAD_BIQUAD(int device_address, char param_address, float *paramD
 		SIGMA_WRITE_REGISTER_BLOCK(device_address, 0x0819, 1, safe_load_address);
 
 
-	ADI_REG_TYPE safe_load_IST_flip[1] = {0x3C};
-	SIGMA_WRITE_REGISTER_BLOCK(device_address, 0x081C, 1, safe_load_IST_flip);
+	ADI_REG_TYPE safe_load_IST_flip[2] = {0x00, 0x3C};
+	SIGMA_WRITE_REGISTER_BLOCK(device_address, 0x081C, 2, safe_load_IST_flip);
 }
 
 

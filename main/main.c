@@ -27,7 +27,7 @@
 #include "dsp_ble.h"
 #include "coefficient_utils.h"
 #include "SigmaStudioFW.h"
-#include "SigmaStudioFiles/Design 1_IC_1.h"
+#include "SigmaStudioFiles/0_1_IC_1.h"
 
 #define POWER_LED_0 13
 #define POWER_LED_1 14
@@ -39,8 +39,11 @@
 #define SDA_PIN 21
 #define SCL_PIN 22
 
-#define VOL_PARAM_ADDR			0x19
-#define BIQUAD_PARAM_BASE_ADDR	0x14
+//#define VOL_PARAM_ADDR			0x19
+//#define BIQUAD_PARAM_BASE_ADDR	0x14
+
+#define VOL_PARAM_ADDR			0x09
+#define BIQUAD_PARAM_BASE_ADDR	0x04
 
 #define PROFILE_NUM                 1
 #define PROFILE_IDX        		    0
@@ -56,7 +59,7 @@
 #define ADV_CONFIG_FLAG             (1 << 0)
 #define SCAN_RSP_CONFIG_FLAG        (1 << 1)
 
-
+esp_err_t ret;
 bool POWER_LED_COLOUR = 0;
 uint16_t dsp_control_handle_table[NUM_TABLE_ELEMENTS];
 
@@ -68,6 +71,8 @@ typedef struct {
 
 static uint8_t service_uuid[16] = {
     /* LSB <--------------------------------------------------------------------------------> MSB */
+	//	'0000180F-0000-1000-8000-00805F9B34FB'
+	//	'000000FF-0000-1000-8000-00805F9B34FB'
     //first uuid, 16bit, [12],[13] is the value
     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00,
 };
@@ -277,10 +282,14 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 	switch(event) {
 
 		case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
+
 			esp_ble_gap_start_advertising(&adv_params);
+
+
 		break;
 		case ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT:
 			esp_ble_gap_start_advertising(&adv_params);
+
 		break;
 		case ESP_GAP_BLE_ADV_START_COMPLETE_EVT:
 			printf("ESP_GAP_BLE_ADV_START_COMPLETE_EVT called.\n");
@@ -337,8 +346,18 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 
 				esp_ble_gatts_create_attr_tab(dsp_db, gatts_if, NUM_TABLE_ELEMENTS, SVC_INST_ID);
 
-	            esp_ble_gap_config_adv_data(&adv_data);
-	            esp_ble_gap_config_adv_data(&scan_rsp_data);
+	            ret = esp_ble_gap_config_adv_data(&adv_data);
+	            if(ret != 0){
+	            	printf("esp_ble_gap_config_adv_data   ADV   FAILED.\n");
+	            } else if (ret == ESP_OK) {
+ 	            	printf("esp_ble_gap_config_adv_data    ADV SUCCESS ");
+ 	            }
+	            ret = esp_ble_gap_config_adv_data(&scan_rsp_data);
+	            if(ret != ESP_OK){
+	     	            	printf("esp_ble_gap_config_adv_data    RSP  FAILED.\n");
+	     	            } else if (ret == ESP_OK) {
+	     	            	printf("esp_ble_gap_config_adv_data    RSP SUCCESS ");
+	     	            }
 			break;
 			case ESP_GATTS_CREATE_EVT:
 				break;
@@ -350,25 +369,27 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 					newVol = newVol/100;
 					process_coefficient_for_i2c(newVol, DSP_VOLUME_LEVEL);
 					SIGMA_SAFELOAD_SINGLE(0x34, VOL_PARAM_ADDR, DSP_VOLUME_LEVEL);
-
+					printf("Volume: %f\n", newVol);
 
 				} else if (dsp_control_handle_table[IDX_CHAR_Q_VAL] == param->write.handle){
 					float newQ = *param->write.value;
 					newQ = newQ/25;
+					printf("New Q value: %f\n", newQ);
 					float *ptr = calculate_coefficients(low_pass, gain, newQ, cutFreq);
 					SIGMA_SAFELOAD_BIQUAD(0x34, BIQUAD_PARAM_BASE_ADDR, ptr);
+
+
 
 				} else if (dsp_control_handle_table[IDX_CHAR_CUTFREQ_VAL] == param->write.handle) {
 					float newCutFreq = *param->write.value *10;
 					printf("New cut-off frequency value: %f\n", newCutFreq);
-					printf("Q: %f  |  newCutFreq: %f\n", Q, newCutFreq);
 					float *ptr = calculate_coefficients(low_pass, gain, Q, newCutFreq);
 				 	SIGMA_SAFELOAD_BIQUAD(0x34, BIQUAD_PARAM_BASE_ADDR, ptr);
 
 				} else if (dsp_control_handle_table[IDX_CHAR_GAIN_VAL] == param->write.handle){
-					float newGain = *param->write.value ;
-					printf("New gain value: %f\n", gain);
-					printf("Q: %f  |  newCutFreq: %f\n", Q, newGain);
+					float gain = *param->write.value;
+					float newGain = gain/10;
+					printf("New gain value: %f\n", newGain);
 					float *ptr = calculate_coefficients(low_pass, newGain, Q, cutFreq);
 				 	SIGMA_SAFELOAD_BIQUAD(0x34, BIQUAD_PARAM_BASE_ADDR, ptr);
 				}
@@ -395,7 +416,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 					            //start sent the update connection parameters to the peer device.
 					            esp_ble_gap_update_conn_params(&conn_params);
 
-					  //          POWER_LED_COLOUR = 1;
+					            POWER_LED_COLOUR = 1;
 				break;
 			case ESP_GATTS_DISCONNECT_EVT:
 				printf("gatts_profile_event_handler: ");
@@ -434,6 +455,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
 
 }
 
+
 /*
  * Power light should be red when power is applied to the device. Then turn green when a BLE connection is made.
  */
@@ -449,7 +471,7 @@ void powerLightOn(void *pvParameter){
 			gpio_set_direction(POWER_LED_1, GPIO_MODE_OUTPUT);
 			gpio_set_level(POWER_LED_1, 0);
 		}
-		if(POWER_LED_COLOUR == 1){
+		else if(POWER_LED_COLOUR == 1){
 			gpio_pad_select_gpio(POWER_LED_0);
 			gpio_set_direction(POWER_LED_0, GPIO_MODE_OUTPUT);
 			gpio_set_level(POWER_LED_0, 0);
@@ -466,15 +488,10 @@ void powerLightOn(void *pvParameter){
 void app_main()
 {
 
-/*
- * power light on.
-***ERROR*** A stack overflow in task LED_INDICATOR has been detected.
-abort() was called at PC 0x4008d82c Guru Meditation Error: Core  0 panic'ed (StoreProhibited). Exception was unhandled.
-0x4008d82c: vApplicationStackOverflowHook at /Users/timfernandez/esp/esp-idf/components/esp32/panic.c:716
- */
-	xTaskCreate(&powerLightOn, "LED_INDICATOR", 16000, NULL, 0, NULL);
 
-    esp_err_t ret;
+//	xTaskCreate(&powerLightOn, "LED_INDICATOR", 16000, NULL, 0, NULL);
+
+
 
     /* Initialize NVS. */
     ret = nvs_flash_init();
@@ -549,8 +566,8 @@ abort() was called at PC 0x4008d82c Guru Meditation Error: Core  0 panic'ed (Sto
 
 
 
-
-    /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
+//
+//    /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND;     //bonding with peer device after authentication
     esp_ble_io_cap_t iocap = ESP_IO_CAP_NONE;           //set the IO capability to No output No input
     uint8_t key_size = 16;      //the key size should be 7~16 bytes
@@ -580,5 +597,5 @@ abort() was called at PC 0x4008d82c Guru Meditation Error: Core  0 panic'ed (Sto
 
 
 
- //   default_download_IC_1();
+    default_download_IC_1();
 }

@@ -100,9 +100,9 @@ main.o: /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/main.c \
  /Users/timfernandez/esp/esp-idf/components/soc/esp32/include/soc/gpio_struct.h \
  /Users/timfernandez/esp/esp-idf/components/soc/esp32/include/soc/gpio_reg.h \
  /Users/timfernandez/esp/esp-idf/components/soc/esp32/include/soc/gpio_sig_map.h \
- /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/Design\ 1_IC_1.h \
+ /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/0_1_IC_1.h \
  /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/../SigmaStudioFW.h \
- /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/Design\ 1_IC_1_REG.h
+ /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/0_1_IC_1_REG.h
 
 /Users/timfernandez/esp/esp-idf/components/freertos/include/freertos/FreeRTOS.h:
 
@@ -306,9 +306,9 @@ main.o: /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/main.c \
 
 /Users/timfernandez/esp/esp-idf/components/soc/esp32/include/soc/gpio_sig_map.h:
 
-/Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/Design\ 1_IC_1.h:
+/Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/0_1_IC_1.h:
 
 /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/../SigmaStudioFW.h:
 
-/Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/Design\ 1_IC_1_REG.h:
+/Users/timfernandez/esp/workspace/dsp_ble_c_2/main/SigmaStudioFiles/0_1_IC_1_REG.h:
 /Users/timfernandez/esp/workspace/dsp_ble_c_2/main/./main.c:
